@@ -62,7 +62,8 @@ mod<-lme4::glmer(as.formula(paste("y ~",varsumstr," (1|lab_ind)")),
 
 samples.per.lab = params$samples_per_lab
 mean = params$mean
-cov = do.call("cbind",params$cov)
+corr = do.call("cbind",params$corr)
+cov = diag(K)%*%corr%*%diag(K)
 max.samp = max(samples.per.lab)
 
 met.data = list()
