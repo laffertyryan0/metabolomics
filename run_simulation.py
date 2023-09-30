@@ -59,6 +59,8 @@ def run(num_iter = None, save_folder = None):
         X = np.loadtxt("x_matrix.csv",delimiter=",")
         H = np.loadtxt("h_matrix.csv",delimiter=",")
         
+        
+        shutil.move("./stacked_met_data.csv","./"+save_folder+f"/aux/stacked_met_data{i}.csv")
         shutil.move("./x_matrix.csv","./"+save_folder+f"/aux/x_matrix{i}.csv")
         shutil.move("./h_matrix.csv","./"+save_folder+f"/aux/h_matrix{i}.csv")
         shutil.move("./missing_vecs.csv","./"+save_folder+f"/aux/missing_vecs{i}.csv")
@@ -99,6 +101,7 @@ def run(num_iter = None, save_folder = None):
     
     shutil.move("./outputs.mat","./"+save_folder+"/outputs.mat")
     shutil.move("./outputs.pkl","./"+save_folder+"/outputs.pkl")
+    shutil.copytree("./data","./"+save_folder+f"/aux/data")
 
     return save_folder
 

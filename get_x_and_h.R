@@ -39,8 +39,11 @@ for(lab_num in 1:N){
   }
 }
 
+mets.in.all.labs.idx = (colSums(1-missing) > 0) + 0 #boolean index showing 1 where metabolite exists
+                                                    #in at least one lab
+
 data = data.frame(y = c(t(missing)), 
-                  lab_ind = seq(1,N)%x%rep(1,K))
+                  lab_ind = seq(1,N)%x%rep(1,K))  #this is not the metabolite data, but the data for fitting missingness model
               #    X1 = c(t(covariates[,1,]))#,
               #    X2 = c(t(covariates[,2,])),
                #   X3 = c(t(covariates[,3,])),
@@ -127,6 +130,9 @@ for(j1 in 1:K){
 #print(X.tilde)
 #print(H)
 
+stacked.met.data = do.call(rbind,met.data)
+
+write.table(x=stacked.met.data,file="stacked_met_data.csv",sep=",",row.names = F,col.names = F)
 write.table(x=X.tilde,file="x_matrix.csv",sep = ",",row.names = F,col.names = F)
 write.table(x=H,file="h_matrix.csv",sep = ",",row.names = F,col.names = F)
 

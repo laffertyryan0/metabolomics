@@ -4,7 +4,7 @@ import shutil
 import os
 import sys
 
-def generate(num_labs=50, #num labs
+def generate_params(num_labs=50, #num labs
              num_lab_covariates=2, #num lab covariates
              num_metabolites=50, #num metabolites
              avg_samples_per_lab = 40,
@@ -37,7 +37,7 @@ def generate(num_labs=50, #num labs
                    delimiter=",")
 
     init_dict["true_beta"] = np.random.randn(P).tolist()
-    init_dict["true_b"] = (2*np.random.randn(N)/3).tolist()
+    init_dict["true_b"] = (2*np.random.randn(N)/3 + 5).tolist() 
 
     init_dict["samples_per_lab"] = [max(0,int(x)) for x in
                                     (avg_samples_per_lab +
@@ -61,6 +61,12 @@ def generate(num_labs=50, #num labs
 
 if __name__ == "__main__":
 
+    command_args = sys.argv
+
+    N = 50
+    K = 50
+    P = 2
+
     for i, arg in enumerate(command_args):
         if arg == "-N" or arg == "-n":
             N = int(command_args[i+1])
@@ -69,4 +75,4 @@ if __name__ == "__main__":
         if arg == "-K" or arg == "-k":
             K = int(command_args[i+1])
             
-    generate(N,P,K,seed=42)
+    generate_params(N,P,K,seed=42)
