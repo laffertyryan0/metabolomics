@@ -37,7 +37,7 @@ def generate_params(num_labs=50, #num labs
                    delimiter=",")
 
     init_dict["true_beta"] = np.random.randn(P).tolist()
-    init_dict["true_b"] = (2*np.random.randn(N)/3 + 5).tolist() 
+    init_dict["true_b"] = (2*np.random.randn(N)/3 + 2).tolist() 
 
     init_dict["samples_per_lab"] = [max(0,int(x)) for x in
                                     (avg_samples_per_lab +
@@ -63,8 +63,8 @@ if __name__ == "__main__":
 
     command_args = sys.argv
 
-    N = 50
-    K = 50
+    N = 17
+    K = 12
     P = 2
 
     for i, arg in enumerate(command_args):

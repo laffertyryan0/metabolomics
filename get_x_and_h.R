@@ -7,6 +7,7 @@ params = rjson::fromJSON(file="./data/init.json")
 cov_files = list.files(params$covariate_files)
 K = length(cov_files)
 
+
 cov_list = list()
 for(i in 1:K){
   cov_list[[i]] = read.csv2(paste(params$covariate_files,"/",cov_files[i],sep=""),
@@ -39,7 +40,7 @@ for(lab_num in 1:N){
   }
 }
 
-mets.in.all.labs.idx = (colSums(1-missing) > 0) + 0 #boolean index showing 1 where metabolite exists
+mets.in.some.lab.idx = (colSums(1-missing) > 0)  #boolean index showing TRUE where metabolite exists
                                                     #in at least one lab
 
 data = data.frame(y = c(t(missing)), 
@@ -76,10 +77,17 @@ for(i in 1:N){
   met.data[[i]] = mvtnorm::rmvnorm(samples.per.lab[i],
                           mean=mean,
                           sigma = cov)
+  
+  #ignore data for metabolites that are missing in every lab
+  met.data[[i]] = met.data[[i]][,mets.in.some.lab.idx]
+  
   X[[i]] = cor(met.data[[i]],method = "spearman")
   lam[[i]] = 1/samples.per.lab[i]
+  
 }
 
+
+K.dropped = sum(mets.in.some.lab.idx)
 
 delta = list()
 p = list()
@@ -96,7 +104,7 @@ for(i in 1:N){
         bihat[i]  + covariates[i,,j2]%*%as.double(betas[-1])))
                        
       if(j1 == j2){
-        p[[i]][j1,j2] = 1 - pr.est1
+        p[[i]][j1,j2] = 1 - pr.est1 #probability of being non-missing
         delta[[i]][j1,j2] = as.integer((1 - missing[i,j1]))
       }
       else{
@@ -107,22 +115,39 @@ for(i in 1:N){
   }
 }
 
-X.tilde = matrix(rep(0,K*K),nrow=K)
-H = matrix(rep(0,K*K),nrow=K)
-for(j1 in 1:K){
-  for(j2 in 1:K){
+
+delta.dropped = list()
+p.dropped = list()
+
+for(i in 1:N){
+  delta.dropped[[i]] = delta[[i]][mets.in.some.lab.idx,mets.in.some.lab.idx]
+  p.dropped[[i]] = p[[i]][mets.in.some.lab.idx,mets.in.some.lab.idx]
+}
+
+
+X.tilde = matrix(rep(0,K.dropped*K.dropped),nrow=K.dropped)
+H = matrix(rep(0,K.dropped*K.dropped),nrow=K.dropped)
+
+for(j1 in 1:K.dropped){
+  for(j2 in 1:K.dropped){
     sum.x.num = 0
     sum.x.denom = 0
     sum.2.h = 0
     for(i in 1:N){
       sum.x.num = sum.x.num + 
-        lam[[i]]*delta[[i]][j1,j2]*X[[i]][j1,j2]/p[[i]][j1,j2]
+        lam[[i]]*delta.dropped[[i]][j1,j2]*X[[i]][j1,j2]/p.dropped[[i]][j1,j2]
       sum.x.denom = sum.x.denom + 
-        lam[[i]]*delta[[i]][j1,j2]/p[[i]][j1,j2]
+        lam[[i]]*delta.dropped[[i]][j1,j2]/p.dropped[[i]][j1,j2]
       sum.2.h = sum.2.h + 
-        lam[[i]]*delta[[i]][j1,j2]/p[[i]][j1,j2]
+        lam[[i]]*delta.dropped[[i]][j1,j2]/p.dropped[[i]][j1,j2]
     }
-    X.tilde[j1,j2] = sum.x.num/sum.x.denom
+    if(sum.x.denom!=0){  
+      X.tilde[j1,j2] = sum.x.num/sum.x.denom 
+    }
+    else{  #in case a lab has no metabolites, it shouldn't contribute to the sum
+      X.tilde[j1,j2] = 0
+    }
+    
     H[j1,j2] = sqrt(sum.2.h)
   }
 }
@@ -132,6 +157,7 @@ for(j1 in 1:K){
 
 stacked.met.data = do.call(rbind,met.data)
 
+write.table(x=mets.in.some.lab.idx+0,file="mets_in_some_lab_index.csv",sep=",",row.names = F, col.names = F)
 write.table(x=stacked.met.data,file="stacked_met_data.csv",sep=",",row.names = F,col.names = F)
 write.table(x=X.tilde,file="x_matrix.csv",sep = ",",row.names = F,col.names = F)
 write.table(x=H,file="h_matrix.csv",sep = ",",row.names = F,col.names = F)

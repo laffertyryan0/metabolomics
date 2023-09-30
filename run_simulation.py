@@ -49,7 +49,7 @@ def run(num_iter = None, save_folder = None):
     if not os.path.exists(save_folder+"/aux"):
         os.mkdir(save_folder+"/aux")
 
-    matlab_code = "outputs = {};"
+    matlab_code = "outputs = {};\ndrops = {};"
 
 
     for i in range(1,num_iter+1):
@@ -58,6 +58,7 @@ def run(num_iter = None, save_folder = None):
                         shell=True)
         X = np.loadtxt("x_matrix.csv",delimiter=",")
         H = np.loadtxt("h_matrix.csv",delimiter=",")
+        drops = np.loadtxt("./mets_in_some_lab_index.csv")
         
         
         shutil.move("./stacked_met_data.csv","./"+save_folder+f"/aux/stacked_met_data{i}.csv")
@@ -66,6 +67,7 @@ def run(num_iter = None, save_folder = None):
         shutil.move("./missing_vecs.csv","./"+save_folder+f"/aux/missing_vecs{i}.csv")
         shutil.move("./pr_vecs.csv","./"+save_folder+f"/aux/pr_vecs{i}.csv")
         shutil.move("./min_eigs.csv","./"+save_folder+f"/aux/min_eigs{i}.csv")
+        shutil.move("./mets_in_some_lab_index.csv","./"+save_folder+f"/aux/mets_in_some_lab_index{i}.csv")
         
         x_str = np.array2string(X,precision=9,separator=",",threshold=np.inf)\
                 .replace("],\n","];")\
@@ -73,15 +75,27 @@ def run(num_iter = None, save_folder = None):
         h_str = np.array2string(H,precision=9,separator=",",threshold=np.inf)\
                 .replace("],\n","];")\
                 .replace("\n","...\n")
+        drops_str = np.array2string(drops,precision=9,separator=",",threshold=np.inf)\
+                .replace("],\n","];")\
+                .replace("\n","...\n")
 
         matlab_code = matlab_code + "\n"
         matlab_code = matlab_code + f"X = {x_str};\n"
         matlab_code = matlab_code + "for i=1:length(X);X(i,i) = 1;end\n"
         matlab_code = matlab_code + f"H = {h_str};\n"
+        matlab_code = matlab_code + "drops{"+str(i)+"} = "+drops_str+";\n"
         matlab_code = matlab_code + "out = nearcorr(X,'Weights',H,'MaxIterations',10000);\n"
         matlab_code = matlab_code + "outputs{"+str(i)+"} = out;\n"
         
+    matlab_code = matlab_code + "\nfinal_drops = ones(1,length(drops{1}));for i=1:length(drops);final_drops=final_drops.*drops{i};end;"
+    matlab_code = matlab_code + "\nfor(i = 1:length(outputs));"
+    matlab_code = matlab_code + "\nnew_out = repmat(NaN,length(final_drops),length(final_drops));"
+    matlab_code = matlab_code + "\nnew_out(drops{i}'*drops{i}==1)=outputs{i};"
+    matlab_code = matlab_code + "\noutputs_final{i} = new_out(final_drops==1,final_drops==1);end;"
+    matlab_code = matlab_code + "\noutputs = outputs_final;"
+
     matlab_code = matlab_code + "\nsave('outputs.mat','outputs');"
+    
     if os.path.exists("simulation.m"):
         os.remove("simulation.m")
                   
