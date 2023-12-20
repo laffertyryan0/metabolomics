@@ -107,7 +107,7 @@ def compare_real_to_generated_data_29aug2023():
     generate_params(seed=None,
              num_lab_covariates = 2,
              avg_samples_per_lab = 40,
-             num_metabolites=1000)
+             num_metabolites=300)
     init_dict = utilities.get_init_dict()
     
     out_path = run(num_iter=num_iter)

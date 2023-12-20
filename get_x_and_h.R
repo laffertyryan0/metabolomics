@@ -1,4 +1,4 @@
-setwd("/home/ryan/projects/metabolomics")
+setwd(".")
 
 #read all fixed things from a json file init.json
 
@@ -38,6 +38,15 @@ for(lab_num in 1:N){
     pr[lab_num,metabolite] = pnorm(-1 + covariates[lab_num,,metabolite]%*%beta + b[lab_num])
     missing[lab_num,metabolite] = rbinom(1,1,pr[lab_num,metabolite])
   }
+}
+
+#For each metabolite, randomly choose one lab and force it to be non-missing
+#The model is still approximately correct
+#this makes the mets.in.some.lab.idx no longer necessary, but we will keep it 
+#for now
+for(metabolite in 1:K){
+  random_lab = sample(1:N,1)
+  missing[random_lab,metabolite] = 0
 }
 
 mets.in.some.lab.idx = (colSums(1-missing) > 0)  #boolean index showing TRUE where metabolite exists
@@ -89,30 +98,18 @@ for(i in 1:N){
 
 K.dropped = sum(mets.in.some.lab.idx)
 
-delta = list()
-p = list()
+p = array(0,dim=c(N,K,K))
+delta = array(0,dim=c(N,K,K))
 bihat = c(lme4::ranef(mod)$lab_ind[[1]])
 for(i in 1:N){
   betas = coef(mod)[1]$lab_ind[i,]
-  delta[[i]] = matrix(rep(0,K*K),nrow=K)
-  p[[i]] = matrix(rep(0,K*K),nrow=K)
-  for(j1 in 1:K){
-    for(j2 in 1:K){
-      pr.est1 = pnorm(as.double(
-        bihat[i]  + covariates[i,,j1]%*%as.double(betas[-1])))
-      pr.est2 = pnorm(as.double(
-        bihat[i]  + covariates[i,,j2]%*%as.double(betas[-1])))
-                       
-      if(j1 == j2){
-        p[[i]][j1,j2] = 1 - pr.est1 #probability of being non-missing
-        delta[[i]][j1,j2] = as.integer((1 - missing[i,j1]))
-      }
-      else{
-        delta[[i]][j1,j2] = as.integer((1 - missing[i,j1])&(1-missing[i,j2]))
-        p[[i]][j1,j2] = (1 - pr.est1)*(1 - pr.est2)
-      }
-    }
-  }
+  
+  one.minus.pr.est.vec.i = 1-pnorm(as.double(
+    bihat[i]  + t(covariates[i,,])%*%as.double(betas[-1])))
+  #p is the probability of being non-missing
+  p[i,,] = outer(one.minus.pr.est.vec.i,one.minus.pr.est.vec.i)
+  diag(p[i,,]) = sqrt(diag(p[i,,]))
+  delta[i,,] = outer(1-missing[i,],1-missing[i,])
 }
 
 
@@ -120,8 +117,8 @@ delta.dropped = list()
 p.dropped = list()
 
 for(i in 1:N){
-  delta.dropped[[i]] = delta[[i]][mets.in.some.lab.idx,mets.in.some.lab.idx]
-  p.dropped[[i]] = p[[i]][mets.in.some.lab.idx,mets.in.some.lab.idx]
+  delta.dropped[[i]] = delta[i,mets.in.some.lab.idx,mets.in.some.lab.idx]
+  p.dropped[[i]] = p[i,mets.in.some.lab.idx,mets.in.some.lab.idx]
 }
 
 
@@ -134,12 +131,16 @@ for(j1 in 1:K.dropped){
     sum.x.denom = 0
     sum.2.h = 0
     for(i in 1:N){
-      sum.x.num = sum.x.num + 
-        lam[[i]]*delta.dropped[[i]][j1,j2]*X[[i]][j1,j2]/p.dropped[[i]][j1,j2]
-      sum.x.denom = sum.x.denom + 
-        lam[[i]]*delta.dropped[[i]][j1,j2]/p.dropped[[i]][j1,j2]
-      sum.2.h = sum.2.h + 
-        lam[[i]]*delta.dropped[[i]][j1,j2]/p.dropped[[i]][j1,j2]
+      #Only contribute to the sum if probability of non-missing is > 0
+      if(p.dropped[[i]][j1,j2]>0){
+        sum.x.num = sum.x.num + 
+          lam[[i]]*delta.dropped[[i]][j1,j2]*X[[i]][j1,j2]/p.dropped[[i]][j1,j2]
+        sum.x.denom = sum.x.denom + 
+          lam[[i]]*delta.dropped[[i]][j1,j2]/p.dropped[[i]][j1,j2]
+        sum.2.h = sum.2.h + 
+          lam[[i]]*delta.dropped[[i]][j1,j2]/p.dropped[[i]][j1,j2]
+      }
+      
     }
     if(sum.x.denom!=0){  
       X.tilde[j1,j2] = sum.x.num/sum.x.denom 
@@ -157,13 +158,19 @@ for(j1 in 1:K.dropped){
 
 stacked.met.data = do.call(rbind,met.data)
 
-write.table(x=mets.in.some.lab.idx+0,file="mets_in_some_lab_index.csv",sep=",",row.names = F, col.names = F)
-write.table(x=stacked.met.data,file="stacked_met_data.csv",sep=",",row.names = F,col.names = F)
-write.table(x=X.tilde,file="x_matrix.csv",sep = ",",row.names = F,col.names = F)
-write.table(x=H,file="h_matrix.csv",sep = ",",row.names = F,col.names = F)
+tryCatch({
+write.table(x=mets.in.some.lab.idx+0,file="./mets_in_some_lab_index.csv",sep=",",row.names = F, col.names = F)
+write.table(x=stacked.met.data,file="./stacked_met_data.csv",sep=",",row.names = F,col.names = F)
+write.table(x=X.tilde,file="./x_matrix.csv",sep = ",",row.names = F,col.names = F)
+write.table(x=H,file="./h_matrix.csv",sep = ",",row.names = F,col.names = F)
 
-write.table(x=t(c(pr)),file="pr_vecs.csv",sep = ",",row.names = F,col.names = F,append=T)
-write.table(x=t(c(missing)),file="missing_vecs.csv",sep = ",",row.names = F,col.names = F,append=T)
-write.table(x=min(eigen(X.tilde)$values),file="min_eigs.csv",sep = ",",row.names = F,col.names = F,append=T)
+write.table(x=t(c(pr)),file="./pr_vecs.csv",sep = ",",row.names = F,col.names = F,append=T)
+write.table(x=t(c(missing)),file="./missing_vecs.csv",sep = ",",row.names = F,col.names = F,append=T)
+write.table(x=min(eigen(X.tilde)$values),file="./min_eigs.csv",sep = ",",row.names = F,col.names = F,append=T)
+},
+error = function(e){
+  print(e$message)
+})
+
 
 print(min(eigen(X.tilde)$values))

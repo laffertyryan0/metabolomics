@@ -63,7 +63,9 @@ def run(num_iter = None, save_folder = None):
         
         shutil.move("./stacked_met_data.csv","./"+save_folder+f"/aux/stacked_met_data{i}.csv")
         shutil.move("./x_matrix.csv","./"+save_folder+f"/aux/x_matrix{i}.csv")
+        x_path = "./"+save_folder+f"/aux/x_matrix{i}.csv"
         shutil.move("./h_matrix.csv","./"+save_folder+f"/aux/h_matrix{i}.csv")
+        h_path = "./"+save_folder+f"/aux/h_matrix{i}.csv"
         shutil.move("./missing_vecs.csv","./"+save_folder+f"/aux/missing_vecs{i}.csv")
         shutil.move("./pr_vecs.csv","./"+save_folder+f"/aux/pr_vecs{i}.csv")
         shutil.move("./min_eigs.csv","./"+save_folder+f"/aux/min_eigs{i}.csv")
@@ -80,12 +82,16 @@ def run(num_iter = None, save_folder = None):
                 .replace("\n","...\n")
 
         matlab_code = matlab_code + "\n"
-        matlab_code = matlab_code + f"X = {x_str};\n"
+        matlab_code = matlab_code + f"X = readmatrix('{x_path}');\n"
         matlab_code = matlab_code + "for i=1:length(X);X(i,i) = 1;end\n"
-        matlab_code = matlab_code + f"H = {h_str};\n"
+        matlab_code = matlab_code + f"H = readmatrix('{h_path}');\n"
         matlab_code = matlab_code + "drops{"+str(i)+"} = "+drops_str+";\n"
+        matlab_code = matlab_code + "disp('start nc')\n"
         matlab_code = matlab_code + "out = nearcorr(X,'Weights',H,'MaxIterations',10000);\n"
+        matlab_code = matlab_code + "disp('stop nc')\n"
         matlab_code = matlab_code + "outputs{"+str(i)+"} = out;\n"
+
+        matlab_code = matlab_code + "disp('hi')\n"
         
     matlab_code = matlab_code + "\nfinal_drops = ones(1,length(drops{1}));for i=1:length(drops);final_drops=final_drops.*drops{i};end;"
     matlab_code = matlab_code + "\nfor(i = 1:length(outputs));"
